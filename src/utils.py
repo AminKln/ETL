@@ -6,6 +6,7 @@ from decimal import Decimal
 
 import pandas as pd
 import pyodbc
+from tqdm import tqdm
 
 from configs import DB_CONFIG
 
@@ -113,7 +114,25 @@ def generate_create_ext_table_sql(df, table_name, file_path):
     """
     return create_stmt
 
-def db_write(df, table_name, batch_size=10_000):
+def csv_write(df, df_path, chunk_size=None):
+    if chunk_size is None:
+        df.to_csv(df_path, index=False, header=True)
+        return
+
+    total_chunks = (len(df) + chunk_size - 1) // chunk_size  # Calculate total chunks
+    
+    with open(df_path, 'w', newline='') as f:
+        # Write headers first
+        f.write(','.join(df.columns) + '\n')
+        
+        # Write data in chunks with progress bar
+        with tqdm(total=total_chunks, desc="Writing to CSV") as pbar:
+            for i in range(0, len(df), chunk_size):
+                chunk = df.iloc[i:i + chunk_size]
+                chunk.to_csv(f, index=False, header=False, mode='a')
+                pbar.update(1)
+
+def db_write(df, table_name, batch_size=100_000):
     """
     Overwrite (replace) an existing table in Netezza with the contents of df
     using row-by-row inserts in batches. Utilizes fast_executemany for efficiency.
@@ -126,6 +145,7 @@ def db_write(df, table_name, batch_size=10_000):
     logger.debug('Starting to write df to db')
     conn = db_conn()
     df_path = 'tmp.csv'
+    df_path = os.path.abspath(df_path)
 
     # 1. Drop existing table
     drop_sql = f"""
@@ -143,9 +163,9 @@ def db_write(df, table_name, batch_size=10_000):
     conn.commit()
     logger.debug('Create DDL Executed')
 
-    # 3. Save df to a file
-    df.to_csv(df_path, index=False, header=True)
-    df_path = os.path.abspath(df_path)
+    # 3. Save df to a file (alternative to df.to_csv to show progress)
+    logger.debug('Starting CSV write')
+    csv_write(df, df_path, batch_size)
     logger.debug('Saved to CSV')
 
     # 4. Create an external table pointing to the CSV
