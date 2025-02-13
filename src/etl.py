@@ -34,18 +34,10 @@ def post_process(report, conn, config):
     if 'post_process' not in config:
         return
         
-    try:
-        # Load the function based on the new config structure
-        if isinstance(config['post_process'], dict):
-            proc = load_function(config['post_process']['function'])
-            # Get parameters from config
-            params = config['post_process'].get('params', {})
-            # Call function with table_name, connection and unpacked parameters
-            proc(table_name, conn, **params)
-        else:
-            # Maintain backward compatibility for simple function references
-            proc = load_function(config['post_process'])
-            proc(table_name, conn)
+    try:    
+        proc = load_function(config['post_process']['function'])
+        params = config['post_process'].get('params', {})
+        proc(table_name, conn, **params)
 
         logger.success(f'Successfully post processed table: {table_name}')
         report['post_processing']['success'].append(table_name)
