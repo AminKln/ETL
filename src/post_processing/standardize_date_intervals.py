@@ -141,7 +141,7 @@ def process_intervals_singlethread(df, sdt_col, ndt_col, id_col, priority_fn, re
         grouped = [(None, df)]
 
     # Process each ID's intervals separately
-    final_results = {}
+    final_results = []
     all_statuses = {}
 
     if reverse_sort:
